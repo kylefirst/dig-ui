@@ -12,6 +12,7 @@
     "build-and-run-query": "DigElements/build-and-run-query#1.0.9",
     "button-action": "DigElements/button-action#1.0.3",
     "clipboard": "^1.5.15",
+    "confidence-marker": "DigElements/confidence-marker",
     "date-picker-display": "DigElements/date-picker-display#1.1.0",
     "date-range-facet": "DigElements/date-range-facet#1.1.0",
     "elastic-client": "DigElements/elastic-client#1.0.5",
