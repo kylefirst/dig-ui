@@ -35,6 +35,7 @@ limitations under the License.
 
   <!-- build:js bower_components/webcomponentsjs/webcomponents-lite.min.js -->
   <script src="bower_components/webcomponentsjs/webcomponents-lite.js"></script>
+
   <!-- endbuild -->
 
   <!-- will be replaced with elements/elements.vulcanized.html -->
@@ -298,7 +299,7 @@ limitations under the License.
             <div class="content">
 
               <!-- Left Pane -->
-              <div class="flex layout vertical">
+              <!-- <div class="flex layout vertical">
                 <template is="dom-repeat" items="[[mapFields]]">
                   <section-and-map
                     show-copy
@@ -403,7 +404,7 @@ limitations under the License.
                     </image-query-and-display>
                   </section-and-title>
                 </template>
-              </div>
+              </div> -->
 
               <!-- Right Pane -->
               <div class="flex layout vertical">
@@ -465,7 +466,8 @@ limitations under the License.
                         <div>No [[item.date.titlePlural]] and/or [[item.entity.titlePlural]]</div>
                       </template>
                     </template>
-
+                    <sparkline-graph>
+                    </sparkline-graph>
                     <zoomable-bar-chart timeline
                       selected-property="[[item.date.key]]"
                       selected="{{filterCollection}}"
@@ -478,7 +480,7 @@ limitations under the License.
                       source="Results"
                       loading="[[item.histogramLoading]]"
                       display-filter-text>
-                    </zoomable-bar-chart>
+                    </zoomable-bar-chart> -->
                   </section-and-title>
                 </template>
 

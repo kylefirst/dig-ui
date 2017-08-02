@@ -1,0 +1,201 @@
+<!--
+Copyright 2017 Next Century Corporation
+
+Licensed under the Apache License, Version 2.0 (the "License");
+you may not use this file except in compliance with the License.
+You may obtain a copy of the License at
+
+    http://www.apache.org/licenses/LICENSE-2.0
+
+Unless required by applicable law or agreed to in writing, software
+distributed under the License is distributed on an "AS IS" BASIS,
+WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+See the License for the specific language governing permissions and
+limitations under the License.
+-->
+
+<dom-module id="sparkline-graph">
+  <template>
+    <style>
+      svg {
+        fill: none;
+        stroke-width: 0.5px;
+        stroke: steelblue;
+        stroke-width: 1;
+        fill: none;
+        width: 100%;
+      }
+    </style>
+
+    <span class="layout horizontal">
+      <div class="layout vertical" style="height:[[height]]px;">
+        <div>[[rangeTopText(formattedPoints)]]</div>
+        <div style="height:100%;"></div>
+        <div>[[rangeBottomText(formattedPoints)]]</div>
+      </div>
+      <div class="layout vertical">
+        <svg id="sparkline" style="width:[[width]]; height:[[height]];"></svg>
+        <span style="text-align: center;">[[domainText(formattedPoints)]]</span>
+      </div>
+    </span>
+  </template>
+
+  <script>
+    function displayGraphExample(data, id, width, height, interpolation, animate, updateDelay, transitionDelay) {
+      var graph = d3.select(id).append("svg:svg").attr("width", width+"px").attr("height", "100%");
+      var xDomain = d3.extent(data, function(d) { return d.formattedDate; });
+      var xRange = [0, width];
+      var yDomain = d3.extent(data, function(d) { return d.count; });
+        yDomain[0] = -5;      
+      var yRange = [height, 0];
+
+      var x = d3.scale.linear().domain(xDomain).range(xRange);
+      var y = d3.scale.linear().domain(yDomain).range(yRange);
+      var line = d3.svg.line()
+                  .x(function(d) { return x(d.formattedDate); })
+                  .y(function(d) { return y(d.count); });
+
+      graph.append("path").attr("d", line(data));
+      graph.selectAll("path")
+        .data([data])
+        .attr("d", line);
+    }
+
+    Polymer({
+      is: 'sparkline-graph',
+
+      properties: {
+        points: {
+          type: Array,
+          value: function () {
+            var i = 0;
+            var out = [];
+            while (i < 20) {
+              var pnt = {};
+              i++;
+              var m = "Apr";
+              var d = Math.round(Math.random()*31+1);
+              var y = Math.round(Math.random()*17+2000);;
+              pnt.date = ""+m+" "+d+", "+y;
+              pnt.count = Math.round(Math.random()*5 +1);
+              out.push(pnt);
+            }
+            return out;
+          }
+        },
+        formattedPoints: {
+          type: Array,
+          value: function () {
+            return [];
+          }
+        },
+        width: {
+          type: Number,
+          value: 500,
+        },
+        height: {
+          type: Number,
+          value: 100,
+        },
+        extractionData: {
+          type: Object
+        }
+      },
+
+      observers: [
+        'parseData(extractionData)',
+        'formatPoints(points)',
+        'displayPoints(formattedPoints,width,height)'
+      ],
+
+      domainText: function (points) {
+        if(points && points.length > 1) {
+          var max = function(highest, point) {
+            if(point.formattedDate > highest.formattedDate) { return point; }
+            return highest;
+          };
+
+          var min = function(lowest, point) {
+            if(point.formattedDate < lowest.formattedDate) { return point; }
+            return lowest;
+          };
+
+          return "Results from "+ points.reduce(min).date + " to "+ points.reduce(max).date;
+        }
+        else if(points && points.length == 1) {
+          return "Result from "+ points[0].date;
+        }
+      },
+
+      _makeMaxF: function (prop) {
+        return function(a, b) {
+          if(b[prop] > a[prop]) { return b; }
+          return a;          
+        }
+      },
+
+      _makeMinF: function (prop) {
+        return function(a, b) {
+          if(b[prop] < a[prop]) { return b; }
+          return a;          
+        }
+      },
+
+      rangeTopText: function(points) {
+        if(points && points.length > 1) {
+          var max = points.reduce(this._makeMaxF("count")).count;
+          var min = points.reduce(this._makeMinF("count")).count;
+          if(max == min) {
+            return "---"+max+"---";
+          }
+          return "\u203E\u203E\u203E"+max+"\u203E\u203E\u203E";
+        }
+        if(points && points.length == 1) {
+          return "---"+points[0].count+"---";
+        }
+      },
+
+      rangeBottomText: function(points) {
+        if(points && points.length > 1) {
+          var max = points.reduce(this._makeMaxF("count")).count;
+          var min = points.reduce(this._makeMinF("count")).count;
+          if(max > min) {
+          return "__"+min+"__";
+          }
+        }
+        return "";
+      },
+
+      parseData: function(extractionData) {
+        var pointArray = [];
+        if(Array.isArray(extractionData)) {
+          pointArray = extractionData.map(function(d) {
+            var point = {};
+            point.date = d.date;
+            point.count = d.data[0].count;
+            return point;
+          });
+        }
+        this.points = pointArray;
+      },
+
+      formatPoints: function (points) {
+        console.log("formatting");
+        this.formattedPoints = points
+          .map(function(point) {
+            point.formattedDate = d3.time.format("%b %e, %Y").parse(point.date);
+            return point;
+          })    
+          .sort(function (a,b) {
+            return (a.formattedDate - b.formattedDate);
+          });
+        console.log(this.formattedPoints);
+      },
+
+      displayPoints: function(points, width, height) {
+        console.log(points);
+        displayGraphExample(points, this.$.sparkline, width, height, "basis", false, 0, 0);
+      }
+    });
+  </script>
+</dom-module>
