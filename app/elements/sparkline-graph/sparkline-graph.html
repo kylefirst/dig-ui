@@ -29,26 +29,22 @@ limitations under the License.
 
     <span class="layout horizontal">
       <div class="layout vertical" style="height:[[height]]px;">
-        <div>[[rangeTopText(formattedPoints)]]</div>
+        <div>[[rangeTopText]]</div>
         <div style="height:100%;"></div>
-        <div>[[rangeBottomText(formattedPoints)]]</div>
+        <div>[[rangeBottomText]]</div>
       </div>
       <div class="layout vertical">
         <svg id="sparkline" style="width:[[width]]; height:[[height]];"></svg>
-        <span style="text-align: center;">[[domainText(formattedPoints)]]</span>
+        <span style="text-align: center;">[[domainText]]</span>
       </div>
     </span>
   </template>
 
   <script>
-    function displayGraphExample(data, id, width, height, interpolation, animate, updateDelay, transitionDelay) {
+    function displayGraphExample(data, id, xDomain, yDomain, width, height, interpolation, animate, updateDelay, transitionDelay) {
       var graph = d3.select(id).append("svg:svg").attr("width", width+"px").attr("height", "100%");
-      var xDomain = d3.extent(data, function(d) { return d.formattedDate; });
       var xRange = [0, width];
-      var yDomain = d3.extent(data, function(d) { return d.count; });
-        yDomain[0] = -5;      
       var yRange = [height, 0];
-
       var x = d3.scale.linear().domain(xDomain).range(xRange);
       var y = d3.scale.linear().domain(yDomain).range(yRange);
       var line = d3.svg.line()
@@ -68,133 +64,45 @@ limitations under the License.
         points: {
           type: Array,
           value: function () {
-            var i = 0;
-            var out = [];
-            while (i < 20) {
-              var pnt = {};
-              i++;
-              var m = "Apr";
-              var d = Math.round(Math.random()*31+1);
-              var y = Math.round(Math.random()*17+2000);;
-              pnt.date = ""+m+" "+d+", "+y;
-              pnt.count = Math.round(Math.random()*5 +1);
-              out.push(pnt);
-            }
-            return out;
-          }
-        },
-        formattedPoints: {
-          type: Array,
-          value: function () {
             return [];
           }
         },
         width: {
           type: Number,
-          value: 500,
+          value: 100,
         },
         height: {
           type: Number,
-          value: 100,
+          value: 25,
         },
-        extractionData: {
-          type: Object
+        domainText: {
+          type: String,
+          value: ""
+        },
+        rangeTopText: {
+          type: String,
+          value: ""
+        },
+        rangeBottomText: {
+          type: String,
+          value: ""
+        },
+        xRange: {
+          type:Array
+        },
+        yRange: {
+          type:Array
         }
       },
 
       observers: [
-        'parseData(extractionData)',
-        'formatPoints(points)',
-        'displayPoints(formattedPoints,width,height)'
+        'displayPoints(points, width, height, xRange, yRange)'
       ],
 
-      domainText: function (points) {
-        if(points && points.length > 1) {
-          var max = function(highest, point) {
-            if(point.formattedDate > highest.formattedDate) { return point; }
-            return highest;
-          };
-
-          var min = function(lowest, point) {
-            if(point.formattedDate < lowest.formattedDate) { return point; }
-            return lowest;
-          };
-
-          return "Results from "+ points.reduce(min).date + " to "+ points.reduce(max).date;
+      displayPoints: function(points, width, height, xRange, yRange) {
+        if(points && xRange && yRange) {
+          displayGraphExample(points, this.$.sparkline, xRange, yRange, width, height, "basis", false, 0, 0);
         }
-        else if(points && points.length == 1) {
-          return "Result from "+ points[0].date;
-        }
-      },
-
-      _makeMaxF: function (prop) {
-        return function(a, b) {
-          if(b[prop] > a[prop]) { return b; }
-          return a;          
-        }
-      },
-
-      _makeMinF: function (prop) {
-        return function(a, b) {
-          if(b[prop] < a[prop]) { return b; }
-          return a;          
-        }
-      },
-
-      rangeTopText: function(points) {
-        if(points && points.length > 1) {
-          var max = points.reduce(this._makeMaxF("count")).count;
-          var min = points.reduce(this._makeMinF("count")).count;
-          if(max == min) {
-            return "---"+max+"---";
-          }
-          return "\u203E\u203E\u203E"+max+"\u203E\u203E\u203E";
-        }
-        if(points && points.length == 1) {
-          return "---"+points[0].count+"---";
-        }
-      },
-
-      rangeBottomText: function(points) {
-        if(points && points.length > 1) {
-          var max = points.reduce(this._makeMaxF("count")).count;
-          var min = points.reduce(this._makeMinF("count")).count;
-          if(max > min) {
-          return "__"+min+"__";
-          }
-        }
-        return "";
-      },
-
-      parseData: function(extractionData) {
-        var pointArray = [];
-        if(Array.isArray(extractionData)) {
-          pointArray = extractionData.map(function(d) {
-            var point = {};
-            point.date = d.date;
-            point.count = d.data[0].count;
-            return point;
-          });
-        }
-        this.points = pointArray;
-      },
-
-      formatPoints: function (points) {
-        console.log("formatting");
-        this.formattedPoints = points
-          .map(function(point) {
-            point.formattedDate = d3.time.format("%b %e, %Y").parse(point.date);
-            return point;
-          })    
-          .sort(function (a,b) {
-            return (a.formattedDate - b.formattedDate);
-          });
-        console.log(this.formattedPoints);
-      },
-
-      displayPoints: function(points, width, height) {
-        console.log(points);
-        displayGraphExample(points, this.$.sparkline, width, height, "basis", false, 0, 0);
       }
     });
   </script>

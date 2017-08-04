@@ -408,6 +408,14 @@ limitations under the License.
 
               <!-- Right Pane -->
               <div class="flex layout vertical">
+
+                <json-combine
+                  data-in1="[[histogramFields]]"
+                  data-in2="{}"
+                  data-out="{{stuff}}"
+                  combine-function="[[mergeHistograms]]">
+                </json-combine>
+
                 <template is="dom-repeat" items="[[histogramFields]]">
                   <elastic-client-aggregation-builder
                     name="[[item.entity.key]]"
@@ -466,21 +474,38 @@ limitations under the License.
                         <div>No [[item.date.titlePlural]] and/or [[item.entity.titlePlural]]</div>
                       </template>
                     </template>
-                    <sparkline-graph>
+                    <json-combine
+                      data-in1="[[item.histogramResults]]"
+                      data-in2="{}"
+                      data-out="{{item.sparkPoints}}"
+                      combine-function="[[parseHistogram]]">
+                    </json-combine>
+                    <sparkline-graph
+                        points="[[item.sparkPoints]]"
+                        domain-text="[[getDomainText(item.sparkPoints)]]"
+                        range-top-text="[[getRangeTopText(item.sparkPoints)]]"
+                        range-bottom-text="[[getRangeBottomText(item.sparkPoints, 'count')]]"
+                        x-range="[[getRange(item.sparkPoints,'formattedDate')]]"
+                        y-range="[[getRange(item.sparkPoints,'count')]]">
                     </sparkline-graph>
-                    <zoomable-bar-chart timeline
-                      selected-property="[[item.date.key]]"
-                      selected="{{filterCollection}}"
-                      bar-property="date"
-                      label-property="text"
-                      stack-property="data"
-                      interval="week"
-                      data="[[item.histogramResults]]"
-                      default-label="Unidentified [[item.entity.titlePlural]]"
-                      source="Results"
-                      loading="[[item.histogramLoading]]"
-                      display-filter-text>
-                    </zoomable-bar-chart> -->
+<!--
+                    <paper-button raised toggles noink on-tap="toggleChar">Show Chart</paper-button>
+ 
+                    <template is="dom-if" if="[[item.shouldShowChart]]">
+                      <zoomable-bar-chart timeline
+                        selected-property="[[item.date.key]]"
+                        selected="{{filterCollection}}"
+                        bar-property="date"
+                        label-property="text"
+                        stack-property="data"
+                        interval="week"
+                        data="[[item.histogramResults]]"
+                        default-label="Unidentified [[item.entity.titlePlural]]"
+                        source="Results"
+                        loading="[[item.histogramLoading]]"
+                        display-filter-text>
+                      </zoomable-bar-chart>
+                    </template> -->
                   </section-and-title>
                 </template>
 
@@ -576,6 +601,17 @@ limitations under the License.
       }
     };
 
+    app.toggleChart = function(e) {
+      var item = e.model.get('item');
+      var index = e.model.get('index');
+
+      if(item.shouldShowChart) {
+        app.set('histogramFields.'+index+'.shouldShowChart', false);
+      } else {
+        app.set('histogramFields.'+index+'.shouldShowChart', true);
+      }
+    };
+
     app.reloadClientConfig = function() {
       app.set('clientConfig', {});
     };
@@ -629,9 +665,92 @@ limitations under the License.
     app.getBlurStyleClass = function(blur, large) {
       return (blur ? (large ? 'large-blur' : 'small-blur') : '');
     };
+
+    app.mergeHistograms = function(extractions) {
+      extractions.sort(function (a,b) {
+        if(a.entity.key < b.entity.key) {
+          return -1;
+        } else if (a.entity.key > b.entity.key) {
+          return 1;
+        } else {
+          return 0;
+        }
+      });
+      console.log(extractions);
+    };
+
+    app.parseHistogram = function(extractionData) {
+      if(Array.isArray(extractionData)) {
+        var idAry = {};
+        //console.log(extractionData);
+        Array.prototype.flatMap = function(lambda) { 
+            return Array.prototype.concat.apply([], this.map(lambda)); 
+        };
+        var pointMap = extractionData.flatMap( function(e) {
+          return e.data.map( function(d) {
+            idAry[d.id]=1;
+            if(d.type) {
+              console.log(d.type);
+            }
+            else {
+              console.log(d);
+            }
+            return {
+              date:e.date, 
+              count:d.count,
+              formattedDate: d3.time.format("%b %e, %Y").parse(e.date)
+            };
+          });
+        })
+        .sort(function (a,b) {
+          return (a.formattedDate - b.formattedDate);
+        });
+        //console.log(idAry);
+        if(pointMap.length >0)  {
+          return pointMap;
+          var tret = pointMap[0];
+          return [tret];
+        }
+      }
+      return undefined;
+    };
+
+    app.getRange = function(points, prop) {
+      var range=  d3.extent(points, function(p) { return p[prop]; });
+      if( range[0] && range[1]) {
+        return range;
+      }
+    };
+
+    app.getDomainText = function (points) {
+      if(points) {
+        var range = app.getRange(points, 'formattedDate');
+        return "Results from "+ d3.time.format("%b %e, %Y")(range[0]) + " to "+ d3.time.format("%b %e, %Y")(range[1]);
+      }
+    };
+
+    app.getRangeTopText = function(points) { 
+      if(points) {
+        var range = app.getRange(points, 'count');
+        if(range[0] < range[1]) {
+          return "\u203E\u203E\u203E"+range[1]+"\u203E\u203E\u203E";
+        }
+        return "";
+      }
+    };
+
+    app.getRangeBottomText = function(points) {
+      if(points) {
+        var range = app.getRange(points, 'count');
+        if(range[0] < range[1]) {
+           return "__"+range[0]+"__";
+        }
+        return "---"+range[0]+"---";
+      }
+    };
     /********************************/
   })(document);
   </script>
-</body>
+</body>s
 
 </html>
