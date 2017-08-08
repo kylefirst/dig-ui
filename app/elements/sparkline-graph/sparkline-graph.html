@@ -27,17 +27,10 @@ limitations under the License.
       }
     </style>
 
-    <span class="layout horizontal">
-      <div class="layout vertical" style="height:[[height]]px;">
-        <div>[[rangeTopText]]</div>
-        <div style="height:100%;"></div>
-        <div>[[rangeBottomText]]</div>
-      </div>
-      <div class="layout vertical">
-        <svg id="sparkline" style="width:[[width]]; height:[[height]];"></svg>
-        <span style="text-align: center;">[[domainText]]</span>
-      </div>
-    </span>
+    <div class="layout vertical">
+      <svg id="sparkline" style="width:[[width]]; height:[[height]];"></svg>
+      <span>[[titleText]]</span>
+    </div>
   </template>
 
   <script>
@@ -67,25 +60,17 @@ limitations under the License.
             return [];
           }
         },
+        titleText: {
+          type: String,
+          value: ""
+        },
         width: {
           type: Number,
-          value: 100,
+          value: 200,
         },
         height: {
           type: Number,
-          value: 25,
-        },
-        domainText: {
-          type: String,
-          value: ""
-        },
-        rangeTopText: {
-          type: String,
-          value: ""
-        },
-        rangeBottomText: {
-          type: String,
-          value: ""
+          value: 50,
         },
         xRange: {
           type:Array

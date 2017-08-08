@@ -299,7 +299,7 @@ limitations under the License.
             <div class="content">
 
               <!-- Left Pane -->
-              <!-- <div class="flex layout vertical">
+              <<div class="flex layout vertical">
                 <template is="dom-repeat" items="[[mapFields]]">
                   <section-and-map
                     show-copy
@@ -404,7 +404,7 @@ limitations under the License.
                     </image-query-and-display>
                   </section-and-title>
                 </template>
-              </div> -->
+              </div>
 
               <!-- Right Pane -->
               <div class="flex layout vertical">
@@ -477,17 +477,23 @@ limitations under the License.
                     <json-combine
                       data-in1="[[item.histogramResults]]"
                       data-in2="{}"
+                      data-out="{{item.splitResults}}"
+                      combine-function="[[splitHistogram]]">
+                    </json-combine>
+                    <json-combine
+                      data-in1="[[item.splitResults]]"
+                      data-in2="{}"
                       data-out="{{item.sparkPoints}}"
                       combine-function="[[parseHistogram]]">
                     </json-combine>
-                    <sparkline-graph
-                        points="[[item.sparkPoints]]"
-                        domain-text="[[getDomainText(item.sparkPoints)]]"
-                        range-top-text="[[getRangeTopText(item.sparkPoints)]]"
-                        range-bottom-text="[[getRangeBottomText(item.sparkPoints, 'count')]]"
-                        x-range="[[getRange(item.sparkPoints,'formattedDate')]]"
-                        y-range="[[getRange(item.sparkPoints,'count')]]">
-                    </sparkline-graph>
+                    <template is='dom-repeat' items='[[item.sparkPoints]]' as='sparkPoints'>
+                      <sparkline-graph
+                          points="[[sparkPoints.pointArray]]"
+                          title-text="[[sparkPoints.key]]"
+                          x-range="[[getRange(sparkPoints.pointArray,'formattedDate')]]"
+                          y-range="[[getRange(sparkPoints.pointArray,'count')]]">
+                      </sparkline-graph>
+                    </template>
 <!--
                     <paper-button raised toggles noink on-tap="toggleChar">Show Chart</paper-button>
  
@@ -676,41 +682,60 @@ limitations under the License.
           return 0;
         }
       });
-      console.log(extractions);
     };
 
-    app.parseHistogram = function(extractionData) {
-      if(Array.isArray(extractionData)) {
-        var idAry = {};
-        //console.log(extractionData);
-        Array.prototype.flatMap = function(lambda) { 
-            return Array.prototype.concat.apply([], this.map(lambda)); 
-        };
-        var pointMap = extractionData.flatMap( function(e) {
-          return e.data.map( function(d) {
-            idAry[d.id]=1;
-            if(d.type) {
-              console.log(d.type);
-            }
-            else {
-              console.log(d);
-            }
+    Array.prototype.flatMap = function(lambda) { 
+      return Array.prototype.concat.apply([], this.map(lambda)); 
+    };
+
+    app.splitHistogram = function(results) {
+      if(Array.isArray(results)) {
+        var newResults = results.flatMap( function(r) {
+          return r.data.map( function(d) {
+            d.date = r.date;
+            d.formattedDate = d3.time.format("%b %e, %Y").parse(d.date);
+            return d;
+          });
+        });
+        var splitResults = {};
+        newResults.map( function (nr) {
+          var sortKey;
+          if(nr.type.indexOf('date') > -1 || nr.type.indexOf('Date') > -1) {
+            sortKey = nr.type;
+          } else {
+            sortKey = nr.id;
+          }
+          if(!splitResults[sortKey]){
+            splitResults[sortKey]= [];
+          }
+          splitResults[sortKey].push(nr);
+        });
+        return splitResults;
+      }
+      return undefined;
+    };
+
+    app.parseHistogram = function(splitResults) {
+      if(splitResults) {
+        var keys = Object.keys(splitResults);
+        var pointsMapArray = keys.map( function(key) {
+
+          var pointMap = splitResults[key].flatMap( function(e) {
             return {
               date:e.date, 
-              count:d.count,
-              formattedDate: d3.time.format("%b %e, %Y").parse(e.date)
+              count:e.count,
+              formattedDate: e.formattedDate
             };
+          })
+          .sort(function (a,b) {
+            return (a.formattedDate - b.formattedDate);
           });
-        })
-        .sort(function (a,b) {
-          return (a.formattedDate - b.formattedDate);
+
+          if(pointMap.length >0)  {
+            return {key: key, pointArray: pointMap};
+          }          
         });
-        //console.log(idAry);
-        if(pointMap.length >0)  {
-          return pointMap;
-          var tret = pointMap[0];
-          return [tret];
-        }
+        return pointsMapArray;
       }
       return undefined;
     };
@@ -719,33 +744,6 @@ limitations under the License.
       var range=  d3.extent(points, function(p) { return p[prop]; });
       if( range[0] && range[1]) {
         return range;
-      }
-    };
-
-    app.getDomainText = function (points) {
-      if(points) {
-        var range = app.getRange(points, 'formattedDate');
-        return "Results from "+ d3.time.format("%b %e, %Y")(range[0]) + " to "+ d3.time.format("%b %e, %Y")(range[1]);
-      }
-    };
-
-    app.getRangeTopText = function(points) { 
-      if(points) {
-        var range = app.getRange(points, 'count');
-        if(range[0] < range[1]) {
-          return "\u203E\u203E\u203E"+range[1]+"\u203E\u203E\u203E";
-        }
-        return "";
-      }
-    };
-
-    app.getRangeBottomText = function(points) {
-      if(points) {
-        var range = app.getRange(points, 'count');
-        if(range[0] < range[1]) {
-           return "__"+range[0]+"__";
-        }
-        return "---"+range[0]+"---";
       }
     };
     /********************************/
