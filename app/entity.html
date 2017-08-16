@@ -299,7 +299,7 @@ limitations under the License.
             <div class="content">
 
               <!-- Left Pane -->
-              <<div class="flex layout vertical">
+              <div class="flex layout vertical">
                 <template is="dom-repeat" items="[[mapFields]]">
                   <section-and-map
                     show-copy
@@ -412,11 +412,12 @@ limitations under the License.
                 <json-combine
                   data-in1="[[histogramFields]]"
                   data-in2="{}"
-                  data-out="{{stuff}}"
+                  data-out="{{sortedHistogramFields}}"
                   combine-function="[[mergeHistograms]]">
                 </json-combine>
+                <template is="dom-repeat" items="[[sortedHistogramFields]]">
+                  [[setIndex(item, index)]]
 
-                <template is="dom-repeat" items="[[histogramFields]]">
                   <elastic-client-aggregation-builder
                     name="[[item.entity.key]]"
                     type="terms"
@@ -473,45 +474,32 @@ limitations under the License.
                       <template is="dom-if" if="[[!item.histogramResults.length]]">
                         <div>No [[item.date.titlePlural]] and/or [[item.entity.titlePlural]]</div>
                       </template>
+
+                      <template is="dom-if" if="[[item.histogramResults.length]]">                    
+                        <sparkline-list
+                          results="[[item.histogramResults]]"
+                          convert-function="[[convertHistograms]]">
+                        </sparkline-list>
+
+                        <paper-button raised toggles noink on-tap='toggleChart'>Show Chart</paper-button>
+                        <template is="dom-if" if="[[item.shouldShowChart]]">
+                          [[print(item)]]
+                          <zoomable-bar-chart timeline
+                            selected-property="[[item.date.key]]"
+                            selected="{{filterCollection}}"
+                            bar-property="date"
+                            label-property="text"
+                            stack-property="data"
+                            interval="week"
+                            data="[[item.histogramResults]]"
+                            default-label="Unidentified [[item.entity.titlePlural]]"
+                            source="Results"
+                            loading="[[item.histogramLoading]]"
+                            display-filter-text>
+                          </zoomable-bar-chart>
+                        </template>
+                      </template>
                     </template>
-                    <json-combine
-                      data-in1="[[item.histogramResults]]"
-                      data-in2="{}"
-                      data-out="{{item.splitResults}}"
-                      combine-function="[[splitHistogram]]">
-                    </json-combine>
-                    <json-combine
-                      data-in1="[[item.splitResults]]"
-                      data-in2="{}"
-                      data-out="{{item.sparkPoints}}"
-                      combine-function="[[parseHistogram]]">
-                    </json-combine>
-                    <template is='dom-repeat' items='[[item.sparkPoints]]' as='sparkPoints'>
-                      <sparkline-graph
-                          points="[[sparkPoints.pointArray]]"
-                          title-text="[[sparkPoints.key]]"
-                          x-range="[[getRange(sparkPoints.pointArray,'formattedDate')]]"
-                          y-range="[[getRange(sparkPoints.pointArray,'count')]]">
-                      </sparkline-graph>
-                    </template>
-<!--
-                    <paper-button raised toggles noink on-tap="toggleChar">Show Chart</paper-button>
- 
-                    <template is="dom-if" if="[[item.shouldShowChart]]">
-                      <zoomable-bar-chart timeline
-                        selected-property="[[item.date.key]]"
-                        selected="{{filterCollection}}"
-                        bar-property="date"
-                        label-property="text"
-                        stack-property="data"
-                        interval="week"
-                        data="[[item.histogramResults]]"
-                        default-label="Unidentified [[item.entity.titlePlural]]"
-                        source="Results"
-                        loading="[[item.histogramLoading]]"
-                        display-filter-text>
-                      </zoomable-bar-chart>
-                    </template> -->
                   </section-and-title>
                 </template>
 
@@ -561,6 +549,9 @@ limitations under the License.
   (function(document) {
     /* globals _, DigBehaviors */
     var app = document.querySelector('#app');
+    app.print = function(item) {
+      console.log(item);
+    };
 
     app.blurImages = false;
 
@@ -607,9 +598,13 @@ limitations under the License.
       }
     };
 
+    app.setIndex = function(item, index) {
+      item.index = index;
+    };
+
     app.toggleChart = function(e) {
       var item = e.model.get('item');
-      var index = e.model.get('index');
+      var index = item.index;
 
       if(item.shouldShowChart) {
         app.set('histogramFields.'+index+'.shouldShowChart', false);
@@ -617,7 +612,6 @@ limitations under the License.
         app.set('histogramFields.'+index+'.shouldShowChart', true);
       }
     };
-
     app.reloadClientConfig = function() {
       app.set('clientConfig', {});
     };
@@ -673,7 +667,7 @@ limitations under the License.
     };
 
     app.mergeHistograms = function(extractions) {
-      extractions.sort(function (a,b) {
+      return extractions.sort(function (a,b) {
         if(a.entity.key < b.entity.key) {
           return -1;
         } else if (a.entity.key > b.entity.key) {
@@ -688,7 +682,8 @@ limitations under the License.
       return Array.prototype.concat.apply([], this.map(lambda)); 
     };
 
-    app.splitHistogram = function(results) {
+    parseHistograms = function(results) {
+      var splitResults = undefined;
       if(Array.isArray(results)) {
         var newResults = results.flatMap( function(r) {
           return r.data.map( function(d) {
@@ -697,25 +692,20 @@ limitations under the License.
             return d;
           });
         });
-        var splitResults = {};
+        splitResults = {};
         newResults.map( function (nr) {
           var sortKey;
           if(nr.type.indexOf('date') > -1 || nr.type.indexOf('Date') > -1) {
             sortKey = nr.type;
           } else {
-            sortKey = nr.id;
+            sortKey = nr.text;
           }
           if(!splitResults[sortKey]){
             splitResults[sortKey]= [];
           }
           splitResults[sortKey].push(nr);
         });
-        return splitResults;
       }
-      return undefined;
-    };
-
-    app.parseHistogram = function(splitResults) {
       if(splitResults) {
         var keys = Object.keys(splitResults);
         var pointsMapArray = keys.map( function(key) {
@@ -740,12 +730,91 @@ limitations under the License.
       return undefined;
     };
 
-    app.getRange = function(points, prop) {
-      var range=  d3.extent(points, function(p) { return p[prop]; });
-      if( range[0] && range[1]) {
+
+    scaleHistograms = function(histograms) {
+      var overallRange = undefined;
+      var ranges = histograms.map( function (histogram) {
+        var range =  d3.extent(histogram.pointArray, function (point) {
+          return point.formattedDate;
+        });
+        if (overallRange == undefined) {
+          overallRange = range;
+        } 
+        if (range[0] < overallRange[0]) {
+          range[0] = overallRange[0];
+        }
+        if (range[1] > overallRange[1]) {
+          range[1] = overallRange[1];
+        }
         return range;
-      }
+      });
+
+      // Add start and end points to make the histograms have the same range
+
+      var scaledHistograms = ranges.map( function (range, index) {
+        var newHistogram = {key: histograms[index].key, pointArray: []};
+        if (range[0].toString() !== overallRange[0].toString()) {
+          newHistogram.pointArray.push({
+            formattedDate: overallRange[0],
+            count: 0
+          });
+        }
+        newHistogram.pointArray = newHistogram.pointArray.concat(histograms[index].pointArray);
+        if (range[1].toString() !== overallRange[1].toString()) {
+          newHistogram.pointArray.push({
+            formattedDate: overallRange[1],
+            count: 0
+          });
+        }
+        return newHistogram;
+      });
+
+      return scaledHistograms;
     };
+
+    padHistograms = function(histograms) {
+      paddedHistograms = histograms.map( function(histogram) {
+        var newpointArray  = [];
+        var i = 1;
+        newpointArray.push(histogram.pointArray[0]);
+        for(var i =1; i < histogram.pointArray.length; i++) {
+          var leftPoint = histogram.pointArray[i-1];
+          var rightPoint = histogram.pointArray[i];
+          var diff = Math.round(xscale(rightPoint.formattedDate) - xscale(leftPoint.formattedDate));
+          if(xscale(rightPoint.formattedDate) - xscale(leftPoint.formattedDate) > 1) {
+            newpointArray.push({
+              count:0,
+              formattedDate: new Date(xunscale(xscale(leftPoint.formattedDate) + 1))
+            });
+          }
+          if(xscale(rightPoint.formattedDate) - xscale(leftPoint.formattedDate) > 2) {
+            newpointArray.push({
+              count:0,
+              formattedDate: new Date(xunscale(xscale(rightPoint.formattedDate) - 1))
+            });
+          }
+          newpointArray.push(rightPoint);
+        }
+        return {key: histogram.key, pointArray: newpointArray};
+      });
+      return paddedHistograms;
+    };
+
+    app.convertHistograms = function(histograms) {
+      var parsedHistograms = parseHistograms(histograms);
+      var scaledHistograms = scaleHistograms(parsedHistograms);
+      var paddedHistograms = padHistograms(scaledHistograms);
+
+
+      return paddedHistograms;
+    };
+
+    var xscale = d3.time.scale()
+      .domain([new Date(2000, 1, 7), new Date(2000, 1, 14)])
+      .range([0,1]);
+    var xunscale = d3.time.scale()
+      .domain([0,1])
+      .range([new Date(2000, 1, 7), new Date(2000, 1, 14)]);
     /********************************/
   })(document);
   </script>
