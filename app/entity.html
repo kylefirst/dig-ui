@@ -299,7 +299,7 @@ limitations under the License.
             <div class="content">
 
               <!-- Left Pane -->
-              <div class="flex layout vertical">
+              <!--div class="flex layout vertical">
                 <template is="dom-repeat" items="[[mapFields]]">
                   <section-and-map
                     show-copy
@@ -612,6 +612,7 @@ limitations under the License.
         app.set('histogramFields.'+index+'.shouldShowChart', true);
       }
     };
+
     app.reloadClientConfig = function() {
       app.set('clientConfig', {});
     };
@@ -668,22 +669,36 @@ limitations under the License.
 
     app.mergeHistograms = function(extractions) {
       return extractions.sort(function (a,b) {
-        if(a.entity.key < b.entity.key) {
+        if( (a.entity.type.includes('date') && b.entity.type.includes('date')) ||
+            (!a.entity.type.includes('date') && !b.entity.type.includes('date'))) {
+          if(a.entity.key < b.entity.key) {
+            return -1;
+          } else if (a.entity.key > b.entity.key) {
+            return 1;
+          } else {
+            return 0;
+          }
+        }
+        else if (a.entity.type.includes('date')) {
           return -1;
-        } else if (a.entity.key > b.entity.key) {
+        }
+        else if (b.entity.type.includes('date')) {
           return 1;
-        } else {
-          return 0;
         }
       });
     };
 
-    Array.prototype.flatMap = function(lambda) { 
-      return Array.prototype.concat.apply([], this.map(lambda)); 
+    Array.prototype.flatMap = function(lambda) {
+      return Array.prototype.concat.apply([], this.map(lambda));
+    };
+
+    String.toCamelCase = function(str) {
+        return str
+            .replace(/(.)/, function($1) { return $1.toUpperCase(); })
+            .replace(/\s(.)/g, function($1) { return $1.toUpperCase(); });
     };
 
     parseHistograms = function(results) {
-      var splitResults = undefined;
       if(Array.isArray(results)) {
         var newResults = results.flatMap( function(r) {
           return r.data.map( function(d) {
@@ -692,11 +707,13 @@ limitations under the License.
             return d;
           });
         });
-        splitResults = {};
-        newResults.map( function (nr) {
+
+        var splitResults = {};
+
+        newResults.forEach( function (nr) {
           var sortKey;
           if(nr.type.indexOf('date') > -1 || nr.type.indexOf('Date') > -1) {
-            sortKey = nr.type;
+            sortKey = String.toCamelCase(nr.type.replace("_"," "));
           } else {
             sortKey = nr.text;
           }
@@ -705,14 +722,12 @@ limitations under the License.
           }
           splitResults[sortKey].push(nr);
         });
-      }
-      if(splitResults) {
-        var keys = Object.keys(splitResults);
-        var pointsMapArray = keys.map( function(key) {
+
+        var pointsMapArray = Object.keys(splitResults).map( function(key) {
 
           var pointMap = splitResults[key].flatMap( function(e) {
             return {
-              date:e.date, 
+              date:e.date,
               count:e.count,
               formattedDate: e.formattedDate
             };
@@ -723,7 +738,7 @@ limitations under the License.
 
           if(pointMap.length >0)  {
             return {key: key, pointArray: pointMap};
-          }          
+          }
         });
         return pointsMapArray;
       }
@@ -733,6 +748,7 @@ limitations under the License.
 
     scaleHistograms = function(histograms) {
       var overallRange = undefined;
+
       var ranges = histograms.map( function (histogram) {
         var range =  d3.extent(histogram.pointArray, function (point) {
           return point.formattedDate;
@@ -749,23 +765,25 @@ limitations under the License.
         return range;
       });
 
-      // Add start and end points to make the histograms have the same range
-
       var scaledHistograms = ranges.map( function (range, index) {
         var newHistogram = {key: histograms[index].key, pointArray: []};
+
         if (range[0].toString() !== overallRange[0].toString()) {
           newHistogram.pointArray.push({
             formattedDate: overallRange[0],
             count: 0
           });
         }
+
         newHistogram.pointArray = newHistogram.pointArray.concat(histograms[index].pointArray);
+
         if (range[1].toString() !== overallRange[1].toString()) {
           newHistogram.pointArray.push({
             formattedDate: overallRange[1],
             count: 0
           });
         }
+
         return newHistogram;
       });
 
@@ -775,21 +793,23 @@ limitations under the License.
     padHistograms = function(histograms) {
       paddedHistograms = histograms.map( function(histogram) {
         var newpointArray  = [];
-        var i = 1;
         newpointArray.push(histogram.pointArray[0]);
-        for(var i =1; i < histogram.pointArray.length; i++) {
+
+        for(var i = 1; i < histogram.pointArray.length; i++) {
           var leftPoint = histogram.pointArray[i-1];
           var rightPoint = histogram.pointArray[i];
           var diff = Math.round(xscale(rightPoint.formattedDate) - xscale(leftPoint.formattedDate));
+
           if(xscale(rightPoint.formattedDate) - xscale(leftPoint.formattedDate) > 1) {
             newpointArray.push({
-              count:0,
+              count: 0,
               formattedDate: new Date(xunscale(xscale(leftPoint.formattedDate) + 1))
             });
           }
+
           if(xscale(rightPoint.formattedDate) - xscale(leftPoint.formattedDate) > 2) {
             newpointArray.push({
-              count:0,
+              count: 0,
               formattedDate: new Date(xunscale(xscale(rightPoint.formattedDate) - 1))
             });
           }
@@ -804,19 +824,19 @@ limitations under the License.
       var parsedHistograms = parseHistograms(histograms);
       var scaledHistograms = scaleHistograms(parsedHistograms);
       var paddedHistograms = padHistograms(scaledHistograms);
-
-
       return paddedHistograms;
     };
 
     var xscale = d3.time.scale()
       .domain([new Date(2000, 1, 7), new Date(2000, 1, 14)])
       .range([0,1]);
+
     var xunscale = d3.time.scale()
       .domain([0,1])
       .range([new Date(2000, 1, 7), new Date(2000, 1, 14)]);
-    /********************************/
+
   })(document);
+  /******************************/
   </script>
 </body>s
 
