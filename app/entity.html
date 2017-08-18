@@ -299,7 +299,7 @@ limitations under the License.
             <div class="content">
 
               <!-- Left Pane -->
-              <!--div class="flex layout vertical">
+              <div class="flex layout vertical">
                 <template is="dom-repeat" items="[[mapFields]]">
                   <section-and-map
                     show-copy
@@ -415,9 +415,8 @@ limitations under the License.
                   data-out="{{sortedHistogramFields}}"
                   combine-function="[[mergeHistograms]]">
                 </json-combine>
-                <template is="dom-repeat" items="[[sortedHistogramFields]]">
-                  [[setIndex(item, index)]]
 
+                <template is="dom-repeat" items="[[sortedHistogramFields]]">
                   <elastic-client-aggregation-builder
                     name="[[item.entity.key]]"
                     type="terms"
@@ -483,7 +482,6 @@ limitations under the License.
 
                         <paper-button raised toggles noink on-tap='toggleChart'>Show Chart</paper-button>
                         <template is="dom-if" if="[[item.shouldShowChart]]">
-                          [[print(item)]]
                           <zoomable-bar-chart timeline
                             selected-property="[[item.date.key]]"
                             selected="{{filterCollection}}"
@@ -549,9 +547,6 @@ limitations under the License.
   (function(document) {
     /* globals _, DigBehaviors */
     var app = document.querySelector('#app');
-    app.print = function(item) {
-      console.log(item);
-    };
 
     app.blurImages = false;
 
@@ -598,18 +593,12 @@ limitations under the License.
       }
     };
 
-    app.setIndex = function(item, index) {
-      item.index = index;
-    };
-
     app.toggleChart = function(e) {
       var item = e.model.get('item');
-      var index = item.index;
-
       if(item.shouldShowChart) {
-        app.set('histogramFields.'+index+'.shouldShowChart', false);
+        e.model.set('item.shouldShowChart', false);
       } else {
-        app.set('histogramFields.'+index+'.shouldShowChart', true);
+        e.model.set('item.shouldShowChart', true);
       }
     };
 
@@ -692,12 +681,6 @@ limitations under the License.
       return Array.prototype.concat.apply([], this.map(lambda));
     };
 
-    String.toCamelCase = function(str) {
-        return str
-            .replace(/(.)/, function($1) { return $1.toUpperCase(); })
-            .replace(/\s(.)/g, function($1) { return $1.toUpperCase(); });
-    };
-
     parseHistograms = function(results) {
       if(Array.isArray(results)) {
         var newResults = results.flatMap( function(r) {
@@ -713,7 +696,7 @@ limitations under the License.
         newResults.forEach( function (nr) {
           var sortKey;
           if(nr.type.indexOf('date') > -1 || nr.type.indexOf('Date') > -1) {
-            sortKey = String.toCamelCase(nr.type.replace("_"," "));
+            sortKey = nr.type.replace("_"," ");
           } else {
             sortKey = nr.text;
           }
@@ -835,9 +818,8 @@ limitations under the License.
       .domain([0,1])
       .range([new Date(2000, 1, 7), new Date(2000, 1, 14)]);
 
+    /********************************/
   })(document);
-  /******************************/
   </script>
-</body>s
-
+</body>
 </html>

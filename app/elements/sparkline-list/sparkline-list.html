@@ -16,31 +16,40 @@ limitations under the License.
 
 <dom-module id="sparkline-list">
   <template>
+    <style>
+    th {
+      text-align: left;
+      text-transform: capitalize;
+    }
+    </style>
     <json-combine
       data-in1="[[results]]"
       data-in2="{}"
       data-out="{{sparkArrays}}"
       combine-function="[[convertFunction]]">
     </json-combine>
-    <template is='dom-repeat' items='[[sparkArrays]]' as='sparkPoints'>
-
-      <sparkline-chart
-          points="[[sparkPoints.pointArray]]"
-          title-text="[[sparkPoints.key]]"
-          x-prop="formattedDate"
-          y-prop="count"
-          width="400">
-      </sparkline-chart>
-    </template>
+    <table>
+      <template is='dom-repeat' items='[[sparkArrays]]' as='sparkPoints'>
+        <tr>
+          <th>[[sparkPoints.key]]</th>
+          <td>
+            <sparkline-chart
+              points="[[sparkPoints.pointArray]]"
+              x-prop="formattedDate"
+              y-prop="count"
+              width="500"
+              height="25">
+            </sparkline-chart>
+          </td>
+        </tr>
+      </template>
+    </table>
   </template>
 
   <script>
     Polymer({
       is: 'sparkline-list',
 
-      print: function(item) {
-        console.log(item);
-      },
       properties: {
         convertFunction: {
           type: String
